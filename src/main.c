@@ -1,19 +1,25 @@
 #include "bmpHandler.h"
 #include "convolution.h"
+#include "convolutionParallel.h"
 #include "filter.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
 
 static void usage(const char *prog) {
   fprintf(stderr,
-          "Usage: %s <input> <output> <kernel> [--kernel=file]\n"
+          "Usage: %s <input> <output> <kernel> [--parallel=type] "
+          "[--kernel=file]\n"
           "\n"
           "Built-in kernels: identity, edgeDetection, sharpen, boxBlur,\n"
           "                  gaussianBlur, motionBlur, emboss,\n"
           "                  edgeEnhancement, meanFilter\n"
           "\n"
+          "  --parallel=type parallel execution\n"
+          "                  types: horizontal, vertical, block, pixel\n"
+          "  --threads=N     number of threads (default: all CPUs)\n"
           "  --repeat=N      run filter N times and report mean (default: 1)\n"
           "  --kernel=file   load kernel from file instead of built-in name\n"
           "\n"
@@ -60,15 +66,41 @@ int main(int argc, char *argv[]) {
   const char *outputImage = argv[2];
   const char *kernelName = NULL;
   const char *kernelFile = NULL;
+  int parallel = 0;
+  int numThreads = (int)sysconf(_SC_NPROCESSORS_ONLN);
   int repeat = 1;
+  enum TypeParallel parallelType = horizontal;
 
   for (int i = 3; i < argc; i++) {
-    if (strncmp(argv[i], "--repeat=", 9) == 0) {
+    if (strcmp(argv[i], "--parallel") == 0) {
+      parallel = 1;
+    } else if (strncmp(argv[i], "--threads=", 10) == 0) {
+      numThreads = atoi(argv[i] + 10);
+      if (numThreads < 1) {
+        fprintf(stderr, "Invalid thread count: %s\n", argv[i] + 10);
+        return 1;
+      }
+    } else if (strncmp(argv[i], "--repeat=", 9) == 0) {
       repeat = atoi(argv[i] + 9);
       if (repeat < 1)
         repeat = 1;
     } else if (strncmp(argv[i], "--kernel=", 9) == 0) {
       kernelFile = argv[i] + 9;
+    } else if (strncmp(argv[i], "--parallel=", 11) == 0) {
+      parallel = 1;
+      if (strcmp(argv[i] + 11, "horizontal") == 0)
+        parallelType = horizontal;
+      else if (strcmp(argv[i] + 11, "vertical") == 0)
+        parallelType = vertical;
+      else if (strcmp(argv[i] + 11, "block") == 0)
+        parallelType = block;
+      else if (strcmp(argv[i] + 11, "pixel") == 0)
+        parallelType = pixel;
+      else {
+        fprintf(stderr, "Unknown parallel type: %s\n", argv[i] + 11);
+        usage(argv[0]);
+        return 1;
+      }
     } else if (argv[i][0] != '-') {
       kernelName = argv[i];
     } else {
@@ -111,7 +143,10 @@ int main(int argc, char *argv[]) {
   clock_gettime(CLOCK_MONOTONIC, &t0);
 
   for (int r = 0; r < repeat; r++) {
-    applyConvolution(&image, filter);
+    if (parallel)
+      applyConvolutionParallel(&image, filter, numThreads, parallelType);
+    else
+      applyConvolution(&image, filter);
   }
 
   clock_gettime(CLOCK_MONOTONIC, &t1);
