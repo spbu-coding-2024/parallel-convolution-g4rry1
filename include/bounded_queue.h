@@ -1,10 +1,11 @@
 #pragma once
 
-#include "bmpStruct.h"
 #include <pthread.h>
 
+struct PipelineTask;
+
 typedef struct {
-  struct BmpImage **buffer;
+  struct PipelineTask **buffer;
   int capacity;
   int head;
   int tail;
@@ -17,9 +18,9 @@ typedef struct {
 
 int bq_init(BoundedQueue *q, int capacity);
 
-int bq_push(BoundedQueue *q, struct BmpImage *item);
+int bq_push(BoundedQueue *q, struct PipelineTask *item);
 
-int bq_pop(BoundedQueue *q, struct BmpImage **out);
+int bq_pop(BoundedQueue *q, struct PipelineTask **out);
 
 void bq_close(BoundedQueue *q);
 

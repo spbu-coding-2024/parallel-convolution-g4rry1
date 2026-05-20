@@ -2,7 +2,7 @@
 #include <stdlib.h>
 
 int bq_init(BoundedQueue *q, int capacity) {
-  q->buffer = malloc(capacity * sizeof(struct BmpImage *));
+  q->buffer = malloc(capacity * sizeof(struct PipelineTask *));
   if (!q->buffer)
     return -1;
   q->capacity = capacity;
@@ -16,7 +16,7 @@ int bq_init(BoundedQueue *q, int capacity) {
   return 0;
 }
 
-int bq_push(BoundedQueue *q, struct BmpImage *item) {
+int bq_push(BoundedQueue *q, struct PipelineTask *item) {
   pthread_mutex_lock(&q->mutex);
 
   while (q->count == q->capacity && !q->closed)
@@ -36,7 +36,7 @@ int bq_push(BoundedQueue *q, struct BmpImage *item) {
   return 0;
 }
 
-int bq_pop(BoundedQueue *q, struct BmpImage **out) {
+int bq_pop(BoundedQueue *q, struct PipelineTask **out) {
   pthread_mutex_lock(&q->mutex);
 
   while (q->count == 0 && !q->closed)
