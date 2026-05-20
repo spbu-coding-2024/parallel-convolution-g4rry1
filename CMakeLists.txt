@@ -18,6 +18,8 @@ add_executable(hw1
     src/filter.c
     src/convolution.c
     src/convolutionParallel.c
+    src/pipeline.c
+    src/bounded_queue.c
 )
 
 target_link_libraries(hw1 m pthread)
@@ -90,8 +92,31 @@ if(ENABLE_TSAN)
     set_tests_properties(test_convolution_parallel PROPERTIES LABELS tsan)
 endif()
 
+add_executable(test_pipeline
+    tests/test_pipeline.c
+    src/bmpHandler.c
+    src/filter.c
+    src/convolution.c
+    src/convolutionParallel.c
+    src/pipeline.c
+    src/bounded_queue.c
+)
+target_include_directories(test_pipeline PRIVATE include)
+target_compile_definitions(test_pipeline PRIVATE
+    TESTFILES_DIR="${CMAKE_SOURCE_DIR}/testfiles"
+)
+target_link_libraries(test_pipeline PRIVATE PkgConfig::CMOCKA m pthread)
+
+if(ENABLE_TSAN)
+    target_compile_options(test_pipeline PRIVATE -fsanitize=thread -g -O1)
+    target_link_options(test_pipeline PRIVATE -fsanitize=thread)
+endif()
+
+add_test(NAME test_pipeline COMMAND test_pipeline)
+
 add_custom_target(check
     COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
-    DEPENDS test_convolution_sequential test_convolution_reference test_convolution_parallel
+    DEPENDS test_convolution_sequential test_convolution_reference
+            test_convolution_parallel test_pipeline
     USES_TERMINAL
 )
