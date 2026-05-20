@@ -103,7 +103,7 @@ void applyConvolutionParallel(struct BmpImage *image,
       targs[i].y_end =
           (blockY == blocksPerRow - 1) ? h : (blockY + 1) * (h / blocksPerRow);
       pthread_create(&threads[i], NULL, threadConvolution, &targs[i]);
-    } else if (type == pixel) {
+    } else {
       targs[i].counter = &counter;
       pthread_create(&threads[i], NULL, threadConvolutionPixel, &targs[i]);
     }

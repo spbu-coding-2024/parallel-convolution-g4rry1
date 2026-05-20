@@ -10,6 +10,7 @@ on:
       - main
       - pr1-sequential
       - pr2-parallel
+      - hw3
 
 jobs:
   test:
@@ -23,7 +24,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang-format cmake pkg-config libcmocka-dev python3-pip
+          sudo apt-get install -y clang-format clang-tidy cmake pkg-config libcmocka-dev python3-pip
 
       - name: Install Python dependencies
         run: python3 -m pip install --user numpy scipy
@@ -37,5 +38,57 @@ jobs:
       - name: Configure
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 
+      - name: Generate fixtures
+        run: cmake --build build --target generate_fixtures
+
+      - name: Run clang-tidy
+        run: |
+          find src tests -name '*.c' ! -name 'fixtures*' \
+            | xargs clang-tidy -p build
+
       - name: Build and run tests
         run: cmake --build build --target check --parallel
+
+  sanitize:
+    name: ASan + UBSan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake pkg-config libcmocka-dev python3-pip
+
+      - name: Install Python dependencies
+        run: python3 -m pip install --user numpy scipy
+
+      - name: Configure (Debug = ASan + UBSan)
+        run: cmake -S . -B build_asan -DCMAKE_BUILD_TYPE=Debug
+
+      - name: Build and run tests
+        run: cmake --build build_asan --target check --parallel
+
+  tsan:
+    name: ThreadSanitizer
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake pkg-config libcmocka-dev python3-pip
+
+      - name: Install Python dependencies
+        run: python3 -m pip install --user numpy scipy
+
+      - name: Configure (TSan)
+        run: cmake -S . -B build_tsan -DENABLE_TSAN=ON -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build and run tests
+        run: cmake --build build_tsan --target check --parallel
