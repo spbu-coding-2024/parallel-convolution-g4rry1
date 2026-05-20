@@ -2,6 +2,7 @@
 #include "convolution.h"
 #include "convolutionParallel.h"
 #include "filter.h"
+#include "pipeline.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -199,6 +200,13 @@ int main(int argc, char *argv[]) {
     filter = resolveNamedKernel(kernelName);
     if (!filter)
       return 1;
+  }
+
+  if (pipeline) {
+    runPipeline(indir, outdir, filter, pipelineWorkers, queueSize,
+                parallel, numThreads, parallelType);
+    free(customFilter.kernel);
+    return 0;
   }
 
   struct BmpImage image;
