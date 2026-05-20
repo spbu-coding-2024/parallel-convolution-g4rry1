@@ -203,8 +203,14 @@ int main(int argc, char *argv[]) {
   }
 
   if (pipeline) {
+    struct timespec t0, t1;
+    clock_gettime(CLOCK_MONOTONIC, &t0);
     runPipeline(indir, outdir, filter, pipelineWorkers, queueSize,
                 parallel, numThreads, parallelType);
+    clock_gettime(CLOCK_MONOTONIC, &t1);
+    double elapsed_ms =
+        (t1.tv_sec - t0.tv_sec) * 1000.0 + (t1.tv_nsec - t0.tv_nsec) / 1e6;
+    printf("TIME_MS: %.3f\n", elapsed_ms);
     free(customFilter.kernel);
     return 0;
   }

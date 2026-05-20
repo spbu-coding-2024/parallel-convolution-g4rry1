@@ -13,8 +13,10 @@ import argparse
 import csv
 import math
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
 import warnings
 
@@ -316,6 +318,117 @@ def save_csv(all_results, path):
     print(f"\nSaved: {path}")
 
 
+def run_pipeline_once(binary, indir, outdir_tmp, filter_name, workers, threads):
+    cmd = [binary, filter_name,
+           f"--pipeline={workers}",
+           f"--indir={indir}",
+           f"--outdir={outdir_tmp}",
+           f"--threads={threads}"]
+    if threads > 1:
+        cmd.append("--parallel=horizontal")
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        print(f"ERROR: {' '.join(cmd)}", file=sys.stderr)
+        print(result.stderr, file=sys.stderr)
+        sys.exit(1)
+    for line in result.stdout.splitlines():
+        if line.startswith("TIME_MS:"):
+            return float(line.split(":", 1)[1].strip())
+    raise RuntimeError(f"No TIME_MS in output:\n{result.stdout}")
+
+
+def collect_pipeline(binary, indir, outdir_tmp, filter_name, workers, threads,
+                     n_runs, warmup=3):
+    for _ in range(warmup):
+        run_pipeline_once(binary, indir, outdir_tmp, filter_name, workers, threads)
+    return np.array([
+        run_pipeline_once(binary, indir, outdir_tmp, filter_name, workers, threads)
+        for _ in range(n_runs)
+    ])
+
+
+def run_pipeline_bench(binary, indir, filter_name, worker_counts, thread_counts,
+                       n_runs, out_dir):
+    outdir_tmp = tempfile.mkdtemp(prefix="hw1_pipe_")
+    results = {}
+
+    print(f"\n=== pipeline: {indir} ===")
+    for w in worker_counts:
+        for t in thread_counts:
+            label = f"w={w}/t={t}"
+            print(f"  {label} ...")
+            raw = collect_pipeline(binary, indir, outdir_tmp, filter_name,
+                                   w, t, n_runs)
+            run_stats = analyze(raw, label)
+            results[label] = run_stats
+            print(f"    {fmt(run_stats['mean'], run_stats['ci'])} ms  "
+                  f"std={run_stats['rel_std_pct']:.1f}%")
+
+    shutil.rmtree(outdir_tmp, ignore_errors=True)
+    return results
+
+
+def save_pipeline_heatmap(results, worker_counts, thread_counts, path):
+    data = np.zeros((len(worker_counts), len(thread_counts)))
+    for i, w in enumerate(worker_counts):
+        for j, t in enumerate(thread_counts):
+            data[i, j] = results[f"w={w}/t={t}"]["mean"]
+
+    fig, ax = plt.subplots(figsize=(max(6, len(thread_counts) * 2),
+                                    max(4, len(worker_counts) * 1.5)))
+    im = ax.imshow(data, aspect="auto", cmap="RdYlGn_r")
+    ax.set_xticks(range(len(thread_counts)))
+    ax.set_xticklabels([str(t) for t in thread_counts])
+    ax.set_yticks(range(len(worker_counts)))
+    ax.set_yticklabels([str(w) for w in worker_counts])
+    ax.set_xlabel("threads per worker")
+    ax.set_ylabel("workers")
+    ax.set_title("Pipeline: mean time (ms) — lower is better")
+    for i in range(len(worker_counts)):
+        for j in range(len(thread_counts)):
+            ax.text(j, i, f"{data[i, j]:.0f}", ha="center", va="center",
+                    fontsize=9, color="black")
+    fig.colorbar(im, ax=ax, label="ms")
+    plt.tight_layout()
+    plt.savefig(path, dpi=100)
+    plt.close()
+    print(f"  saved {path}")
+
+
+def save_pipeline_csv(results, indir, path):
+    with open(path, "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["indir", "config", "n", "mean_ms", "std_ms",
+                    "rel_std_pct", "ci95_ms", "dropped_outliers"])
+        for config, run_stats in results.items():
+            w.writerow([
+                indir, config,
+                run_stats["n"],
+                f"{run_stats['mean']:.6f}",
+                f"{run_stats['std']:.6f}",
+                f"{run_stats['rel_std_pct']:.3f}",
+                f"{run_stats['ci']:.6f}",
+                run_stats["dropped_outliers"],
+            ])
+    print(f"  saved {path}")
+
+
+def print_pipeline_table(results, worker_counts, thread_counts):
+    baseline = results["w=1/t=1"]["mean"]
+    print(f"\n{'':=<65}")
+    print("  Pipeline results")
+    print(f"{'':=<65}")
+    print(f"  {'Config':<20} {'Time (ms)':<22} {'Std':<8} {'Speedup'}")
+    print(f"  {'-'*20} {'-'*22} {'-'*8} {'-'*8}")
+    for w in worker_counts:
+        for t in thread_counts:
+            label = f"w={w}/t={t}"
+            s = results[label]
+            speedup = baseline / s["mean"]
+            print(f"  {label:<20} {fmt(s['mean'], s['ci']):<22} "
+                  f"{s['rel_std_pct']:.1f}%    {speedup:.2f}x")
+
+
 def validate_args(args):
     if args.runs < MIN_RECOMMENDED_RUNS:
         print(f"WARNING: --runs={args.runs}; cheat sheet recommends more than 20 measurements, e.g. 40")
@@ -355,6 +468,18 @@ def main():
     parser.add_argument("--repeat-parallel-large", type=int, default=1,
                         help="repeat parallel filter N times per run for large image (default: 1)")
     parser.add_argument("--out", default="benchmark_results")
+    parser.add_argument("--indir", default="testfiles/pipeline_input",
+                        help="input directory for pipeline small benchmark")
+    parser.add_argument("--indir-large", default="testfiles/pipeline_input_large",
+                        help="input directory for pipeline large benchmark")
+    parser.add_argument("--pipeline-workers", default="1,2,4,8",
+                        help="comma-separated worker counts (default: 1,2,4,8)")
+    parser.add_argument("--pipeline-runs", type=int, default=None,
+                        help="runs for pipeline small (default: same as --runs)")
+    parser.add_argument("--pipeline-runs-large", type=int, default=10,
+                        help="runs for pipeline large (default: 10)")
+    parser.add_argument("--no-pipeline", action="store_true",
+                        help="skip pipeline benchmark")
     args = parser.parse_args()
 
     if not os.path.isfile(args.binary):
@@ -394,6 +519,33 @@ def main():
 
     save_csv(all_results, f"{args.out}/results.csv")
     save_speedup_plot(all_results, thread_counts, args.out)
+
+    if not args.no_pipeline:
+        try:
+            pipeline_worker_counts = [int(x) for x in args.pipeline_workers.split(",")]
+        except ValueError:
+            print(f"ERROR: invalid --pipeline-workers: {args.pipeline_workers}",
+                  file=sys.stderr)
+            sys.exit(1)
+
+        pipeline_runs_small = args.pipeline_runs if args.pipeline_runs else args.runs
+
+        for indir, label, n_runs in (
+            (args.indir,       "small", pipeline_runs_small),
+            (args.indir_large, "large", args.pipeline_runs_large),
+        ):
+            if not os.path.isdir(indir):
+                print(f"\nWARNING: {indir} not found, skipping pipeline {label} benchmark")
+                continue
+            pipeline_results = run_pipeline_bench(
+                args.binary, indir, args.filter,
+                pipeline_worker_counts, thread_counts, n_runs, args.out
+            )
+            print_pipeline_table(pipeline_results, pipeline_worker_counts, thread_counts)
+            save_pipeline_heatmap(pipeline_results, pipeline_worker_counts,
+                                  thread_counts, f"{args.out}/pipeline_heatmap_{label}.png")
+            save_pipeline_csv(pipeline_results, indir,
+                              f"{args.out}/pipeline_results_{label}.csv")
 
 
 if __name__ == "__main__":
