@@ -1,0 +1,17 @@
+indir,config,n,mean_ms,std_ms,rel_std_pct,ci95_ms,dropped_outliers
+testfiles/pipeline_input,w=1/t=1,40,118.710050,0.432814,0.365,0.138421,0
+testfiles/pipeline_input,w=1/t=2,40,60.740100,0.366126,0.603,0.117093,0
+testfiles/pipeline_input,w=1/t=4,40,31.736700,0.254864,0.803,0.081510,0
+testfiles/pipeline_input,w=1/t=8,40,29.533600,0.790979,2.678,0.252967,0
+testfiles/pipeline_input,w=2/t=1,40,60.068075,0.296901,0.494,0.094953,0
+testfiles/pipeline_input,w=2/t=2,40,31.225925,0.284531,0.911,0.090998,0
+testfiles/pipeline_input,w=2/t=4,40,26.341675,1.233094,4.681,0.394363,0
+testfiles/pipeline_input,w=2/t=8,39,22.396462,0.402360,1.797,0.130430,1
+testfiles/pipeline_input,w=4/t=1,40,31.242025,0.248457,0.795,0.079460,0
+testfiles/pipeline_input,w=4/t=2,40,24.800350,1.124760,4.535,0.359716,0
+testfiles/pipeline_input,w=4/t=4,40,22.149700,0.299814,1.354,0.095885,0
+testfiles/pipeline_input,w=4/t=8,40,22.284075,0.321645,1.443,0.102867,0
+testfiles/pipeline_input,w=8/t=1,40,25.044200,2.762402,11.030,0.883459,0
+testfiles/pipeline_input,w=8/t=2,40,23.174700,0.711669,3.071,0.227603,0
+testfiles/pipeline_input,w=8/t=4,40,22.202900,0.343442,1.547,0.109838,0
+testfiles/pipeline_input,w=8/t=8,40,22.695675,0.344195,1.517,0.110079,0
