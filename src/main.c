@@ -10,31 +10,33 @@
 #include <unistd.h>
 
 static void usage(const char *prog) {
-  fprintf(stderr,
-          "Usage:\n"
-          "  Single image: %s <input> <output> <kernel> [options]\n"
-          "  Pipeline:     %s <kernel> --pipeline[=N] --indir=<dir> --outdir=<dir>\n"
-          "\n"
-          "Built-in kernels: identity, edgeDetection, sharpen, boxBlur,\n"
-          "                  gaussianBlur, motionBlur, emboss,\n"
-          "                  edgeEnhancement, meanFilter\n"
-          "\n"
-          "  --parallel=type  parallel execution per image\n"
-          "                   types: horizontal, vertical, block, pixel\n"
-          "  --threads=N      number of threads (default: all CPUs)\n"
-          "  --repeat=N       run filter N times and report mean (default: 1)\n"
-          "  --kernel=file    load kernel from file instead of built-in name\n"
-          "\n"
-          "  --pipeline[=N]   pipeline mode: reader -> N workers -> writer\n"
-          "                   N defaults to 1\n"
-          "  --queue-size=N   bounded queue capacity (default: 8)\n"
-          "  --indir=path     input directory (all .bmp files) for pipeline mode\n"
-          "  --outdir=path    output directory for pipeline mode\n"
-          "\n"
-          "Kernel file format (first line: width height factor bias):\n"
-          "  3 3 0.0625 0.0\n"
-          "  1 2 1 2 4 2 1 2 1\n",
-          prog, prog);
+  fprintf(
+      stderr,
+      "Usage:\n"
+      "  Single image: %s <input> <output> <kernel> [options]\n"
+      "  Pipeline:     %s <kernel> --pipeline[=N] --indir=<dir> "
+      "--outdir=<dir>\n"
+      "\n"
+      "Built-in kernels: identity, edgeDetection, sharpen, boxBlur,\n"
+      "                  gaussianBlur, motionBlur, emboss,\n"
+      "                  edgeEnhancement, meanFilter\n"
+      "\n"
+      "  --parallel=type  parallel execution per image\n"
+      "                   types: horizontal, vertical, block, pixel\n"
+      "  --threads=N      number of threads (default: all CPUs)\n"
+      "  --repeat=N       run filter N times and report mean (default: 1)\n"
+      "  --kernel=file    load kernel from file instead of built-in name\n"
+      "\n"
+      "  --pipeline[=N]   pipeline mode: reader -> N workers -> writer\n"
+      "                   N defaults to 1\n"
+      "  --queue-size=N   bounded queue capacity (default: 8)\n"
+      "  --indir=path     input directory (all .bmp files) for pipeline mode\n"
+      "  --outdir=path    output directory for pipeline mode\n"
+      "\n"
+      "Kernel file format (first line: width height factor bias):\n"
+      "  3 3 0.0625 0.0\n"
+      "  1 2 1 2 4 2 1 2 1\n",
+      prog, prog);
 }
 
 static const struct Filter *resolveNamedKernel(const char *name) {
@@ -177,7 +179,7 @@ int main(int argc, char *argv[]) {
       usage(argv[0]);
       return 1;
     }
-    inputImage  = positional[0];
+    inputImage = positional[0];
     outputImage = positional[1];
     if (!kernelFile)
       kernelName = positional[2];
@@ -205,8 +207,8 @@ int main(int argc, char *argv[]) {
   if (pipeline) {
     struct timespec t0, t1;
     clock_gettime(CLOCK_MONOTONIC, &t0);
-    runPipeline(indir, outdir, filter, pipelineWorkers, queueSize,
-                parallel, numThreads, parallelType);
+    runPipeline(indir, outdir, filter, pipelineWorkers, queueSize, parallel,
+                numThreads, parallelType);
     clock_gettime(CLOCK_MONOTONIC, &t1);
     double elapsed_ms =
         (t1.tv_sec - t0.tv_sec) * 1000.0 + (t1.tv_nsec - t0.tv_nsec) / 1e6;
@@ -215,14 +217,14 @@ int main(int argc, char *argv[]) {
     return 0;
   }
 
+  struct timespec t0, t1;
+  clock_gettime(CLOCK_MONOTONIC, &t0);
+
   struct BmpImage image;
   if (readBmp(inputImage, &image) != 0) {
     free(customFilter.kernel);
     return 1;
   }
-
-  struct timespec t0, t1;
-  clock_gettime(CLOCK_MONOTONIC, &t0);
 
   for (int r = 0; r < repeat; r++) {
     if (parallel)
@@ -231,15 +233,15 @@ int main(int argc, char *argv[]) {
       applyConvolution(&image, filter);
   }
 
+  int ret = 0;
+  if (writeBmp(outputImage, &image) != 0)
+    ret = 1;
+
   clock_gettime(CLOCK_MONOTONIC, &t1);
   double elapsed_ms =
       ((t1.tv_sec - t0.tv_sec) * 1000.0 + (t1.tv_nsec - t0.tv_nsec) / 1e6) /
       repeat;
   printf("TIME_MS: %.3f\n", elapsed_ms);
-
-  int ret = 0;
-  if (writeBmp(outputImage, &image) != 0)
-    ret = 1;
 
   free(image.palette);
   free(image.data);
