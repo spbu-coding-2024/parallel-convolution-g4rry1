@@ -56,8 +56,9 @@ static void *readerThread(void *arg) {
 
   struct dirent *entry;
   while ((entry = readdir(dir)) != NULL) {
-    if (!hasBmpSuffix(entry->d_name))
+    if (!hasBmpSuffix(entry->d_name)) {
       continue;
+    }
 
     char inpath[PATH_MAX];
     snprintf(inpath, sizeof(inpath), "%s/%s", args->indir, entry->d_name);
@@ -87,22 +88,25 @@ static void *readerThread(void *arg) {
 }
 
 static void *workerThread(void *arg) {
-  struct WorkerArgs    *args = arg;
-  struct PipelineTask  *task;
+  struct WorkerArgs   *args = arg;
+  struct PipelineTask *task;
 
   while (bq_pop(args->q1, &task) == 0) {
-    if (args->parallel)
-      applyConvolutionParallel(task->image, args->filter,
-                               args->numThreads, args->parallelType);
-    else
+    if (args->parallel) {
+      applyConvolutionParallel(task->image, args->filter, args->numThreads,
+                               args->parallelType);
+    } else {
       applyConvolution(task->image, args->filter);
+    }
 
-    if (bq_push(args->q2, task) != 0)
+    if (bq_push(args->q2, task) != 0) {
       freeTask(task);
+    }
   }
 
-  if (atomic_fetch_sub(args->activeWorkers, 1) == 1)
+  if (atomic_fetch_sub(args->activeWorkers, 1) == 1) {
     bq_close(args->q2);
+  }
 
   return NULL;
 }
@@ -112,8 +116,9 @@ static void *writerThread(void *arg) {
   struct PipelineTask *task;
 
   while (bq_pop(args->q2, &task) == 0) {
-    if (writeBmp(task->outpath, task->image) != 0)
+    if (writeBmp(task->outpath, task->image) != 0) {
       fprintf(stderr, "Failed to write: %s\n", task->outpath);
+    }
     freeTask(task);
   }
 
@@ -121,11 +126,10 @@ static void *writerThread(void *arg) {
 }
 
 void runPipeline(const char *indir, const char *outdir,
-                 const struct Filter *filter,
-                 int workers, int queueSize,
-                 int parallel, int numThreads,
-                 enum TypeParallel parallelType) {
-  BoundedQueue q1, q2;
+                 const struct Filter *filter, int workers, int queueSize,
+                 int parallel, int numThreads, enum TypeParallel parallelType) {
+  BoundedQueue q1;
+  BoundedQueue q2;
   bq_init(&q1, queueSize);
   bq_init(&q2, queueSize);
 
@@ -138,8 +142,8 @@ void runPipeline(const char *indir, const char *outdir,
   pthread_t        *workerThreads = malloc(workers * sizeof(pthread_t));
   struct WorkerArgs *wargs        = malloc(workers * sizeof(struct WorkerArgs));
   for (int i = 0; i < workers; i++) {
-    wargs[i] = (struct WorkerArgs){&q1, &q2, filter, parallel,
-                                   numThreads, parallelType, &activeWorkers};
+    wargs[i] = (struct WorkerArgs){&q1, &q2, filter, parallel, numThreads,
+                                   parallelType, &activeWorkers};
     pthread_create(&workerThreads[i], NULL, workerThread, &wargs[i]);
   }
 
@@ -148,8 +152,9 @@ void runPipeline(const char *indir, const char *outdir,
   pthread_create(&writer, NULL, writerThread, &wrargs);
 
   pthread_join(reader, NULL);
-  for (int i = 0; i < workers; i++)
+  for (int i = 0; i < workers; i++) {
     pthread_join(workerThreads[i], NULL);
+  }
   pthread_join(writer, NULL);
 
   free(workerThreads);

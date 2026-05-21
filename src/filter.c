@@ -75,8 +75,10 @@ int loadFilterFromFile(const char *path, struct Filter *out) {
     return 1;
   }
 
-  int width, height;
-  double factor, bias;
+  int    width;
+  int    height;
+  double factor;
+  double bias;
   if (fscanf(f, "%d %d %lf %lf", &width, &height, &factor, &bias) != 4 ||
       width <= 0 || height <= 0) {
     fprintf(stderr, "%s: invalid header (expected: width height factor bias)\n",

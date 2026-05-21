@@ -14,18 +14,19 @@ static void *threadConvolution(void *args) {
       double brightness = 0.0;
       for (int filterY = 0; filterY < targs->filter->height; filterY++) {
         for (int filterX = 0; filterX < targs->filter->width; filterX++) {
-          int imageX = (x - targs->filter->width / 2 + filterX + targs->width) %
-                       targs->width;
+          int imageX =
+              (x - (targs->filter->width / 2) + filterX + targs->width) %
+              targs->width;
           int imageY =
-              (y - targs->filter->height / 2 + filterY + targs->height) %
+              (y - (targs->filter->height / 2) + filterY + targs->height) %
               targs->height;
           brightness +=
-              targs->tmp[imageY * targs->stride + imageX] *
-              targs->filter->kernel[filterY * targs->filter->width + filterX];
+              targs->tmp[(imageY * targs->stride) + imageX] *
+              targs->filter->kernel[(filterY * targs->filter->width) + filterX];
         }
       }
-      targs->image[y * targs->stride + x] = (uint8_t)fmin(
-          fmax(targs->filter->factor * brightness + targs->filter->bias, 0),
+      targs->image[(y * targs->stride) + x] = (uint8_t)fmin(
+          fmax((targs->filter->factor * brightness) + targs->filter->bias, 0),
           255);
     }
   }
@@ -42,17 +43,20 @@ static void *threadConvolutionPixel(void *args) {
     double brightness = 0.0;
     for (int filterY = 0; filterY < targs->filter->height; filterY++) {
       for (int filterX = 0; filterX < targs->filter->width; filterX++) {
-        int imageX = (x - targs->filter->width / 2 + filterX + targs->width) %
-                     targs->width;
-        int imageY = (y - targs->filter->height / 2 + filterY + targs->height) %
-                     targs->height;
+        int imageX =
+            (x - (targs->filter->width / 2) + filterX + targs->width) %
+            targs->width;
+        int imageY =
+            (y - (targs->filter->height / 2) + filterY + targs->height) %
+            targs->height;
         brightness +=
-            targs->tmp[imageY * targs->stride + imageX] *
-            targs->filter->kernel[filterY * targs->filter->width + filterX];
+            targs->tmp[(imageY * targs->stride) + imageX] *
+            targs->filter->kernel[(filterY * targs->filter->width) + filterX];
       }
     }
-    targs->image[y * targs->stride + x] = (uint8_t)fmin(
-        fmax(targs->filter->factor * brightness + targs->filter->bias, 0), 255);
+    targs->image[(y * targs->stride) + x] = (uint8_t)fmin(
+        fmax((targs->filter->factor * brightness) + targs->filter->bias, 0),
+        255);
   }
   return NULL;
 }
@@ -67,11 +71,20 @@ void applyConvolutionParallel(struct BmpImage *image,
   uint32_t dataSize = (uint32_t)(stride * h);
 
   uint8_t *tmp = malloc(dataSize);
+  if (!tmp) {
+    return;
+  }
   memcpy(tmp, image->data, dataSize);
 
   atomic_int counter = 0;
   pthread_t *threads = malloc(numThreads * sizeof(pthread_t));
   struct ThreadArgs *targs = malloc(numThreads * sizeof(struct ThreadArgs));
+  if (!threads || !targs) {
+    free(threads);
+    free(targs);
+    free(tmp);
+    return;
+  }
 
   for (int i = 0; i < numThreads; i++) {
     targs[i].width = w;

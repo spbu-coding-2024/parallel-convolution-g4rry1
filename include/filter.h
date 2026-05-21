@@ -1,5 +1,5 @@
-#ifndef CONVOLUTION_H
-#define CONVOLUTION_H
+#ifndef FILTER_H
+#define FILTER_H
 
 enum convolutionType {
   identity,
@@ -34,4 +34,4 @@ extern const struct Filter filterMeanFilter;
 const struct Filter *getFilter(enum convolutionType type);
 int loadFilterFromFile(const char *path, struct Filter *out);
 
-#endif
+#endif /* FILTER_H */

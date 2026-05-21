@@ -7,21 +7,23 @@ int bmpStride(const struct BmpImage *image) {
 }
 
 static uint32_t bmpClrCount(const struct BmpImage *image) {
-  if (image->info.biClrUsed)
+  if (image->info.biClrUsed) {
     return image->info.biClrUsed;
-  return 1u << image->info.biBitCount;
+  }
+  return 1U << image->info.biBitCount;
 }
 
 static uint32_t bmpDataSize(const struct BmpImage *image) {
-  if (image->info.biSizeImage)
+  if (image->info.biSizeImage) {
     return image->info.biSizeImage;
+  }
   int height =
       image->info.biHeight < 0 ? -image->info.biHeight : image->info.biHeight;
   return (uint32_t)(bmpStride(image) * height);
 }
 
 int readBmp(const char *filename, struct BmpImage *image) {
-  FILE *file = fopen(filename, "r");
+  FILE *file = fopen(filename, "rb");
   if (!file) {
     perror("Could not open file");
     return 1;
@@ -44,7 +46,7 @@ int readBmp(const char *filename, struct BmpImage *image) {
 }
 
 int writeBmp(const char *filename, const struct BmpImage *image) {
-  FILE *file = fopen(filename, "w");
+  FILE *file = fopen(filename, "wb");
   if (!file) {
     perror("Could not open file");
     return 1;

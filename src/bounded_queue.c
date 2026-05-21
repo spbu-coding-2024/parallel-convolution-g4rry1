@@ -3,8 +3,9 @@
 
 int bq_init(BoundedQueue *q, int capacity) {
   q->buffer = malloc(capacity * sizeof(struct PipelineTask *));
-  if (!q->buffer)
+  if (!q->buffer) {
     return -1;
+  }
   q->capacity = capacity;
   q->head = 0;
   q->tail = 0;
@@ -19,8 +20,9 @@ int bq_init(BoundedQueue *q, int capacity) {
 int bq_push(BoundedQueue *q, struct PipelineTask *item) {
   pthread_mutex_lock(&q->mutex);
 
-  while (q->count == q->capacity && !q->closed)
+  while (q->count == q->capacity && !q->closed) {
     pthread_cond_wait(&q->not_full, &q->mutex);
+  }
 
   if (q->closed) {
     pthread_mutex_unlock(&q->mutex);
@@ -39,8 +41,9 @@ int bq_push(BoundedQueue *q, struct PipelineTask *item) {
 int bq_pop(BoundedQueue *q, struct PipelineTask **out) {
   pthread_mutex_lock(&q->mutex);
 
-  while (q->count == 0 && !q->closed)
+  while (q->count == 0 && !q->closed) {
     pthread_cond_wait(&q->not_empty, &q->mutex);
+  }
 
   if (q->count == 0) {
     pthread_mutex_unlock(&q->mutex);

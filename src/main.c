@@ -3,11 +3,28 @@
 #include "convolutionParallel.h"
 #include "filter.h"
 #include "pipeline.h"
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+
+struct Config {
+  const char       *inputImage;
+  const char       *outputImage;
+  const char       *kernelName;
+  const char       *kernelFile;
+  const char       *outdir;
+  const char       *indir;
+  int               parallel;
+  int               numThreads;
+  int               repeat;
+  int               pipeline;
+  int               pipelineWorkers;
+  int               queueSize;
+  enum TypeParallel parallelType;
+};
 
 static void usage(const char *prog) {
   fprintf(
@@ -41,29 +58,195 @@ static void usage(const char *prog) {
 
 static const struct Filter *resolveNamedKernel(const char *name) {
   enum convolutionType type;
-  if (strcmp(name, "identity") == 0)
+  if (strcmp(name, "identity") == 0) {
     type = identity;
-  else if (strcmp(name, "edgeDetection") == 0)
+  } else if (strcmp(name, "edgeDetection") == 0) {
     type = edgeDetection;
-  else if (strcmp(name, "sharpen") == 0)
+  } else if (strcmp(name, "sharpen") == 0) {
     type = sharpen;
-  else if (strcmp(name, "boxBlur") == 0)
+  } else if (strcmp(name, "boxBlur") == 0) {
     type = boxBlur;
-  else if (strcmp(name, "gaussianBlur") == 0)
+  } else if (strcmp(name, "gaussianBlur") == 0) {
     type = gaussianBlur;
-  else if (strcmp(name, "motionBlur") == 0)
+  } else if (strcmp(name, "motionBlur") == 0) {
     type = motionBlur;
-  else if (strcmp(name, "emboss") == 0)
+  } else if (strcmp(name, "emboss") == 0) {
     type = emboss;
-  else if (strcmp(name, "edgeEnhancement") == 0)
+  } else if (strcmp(name, "edgeEnhancement") == 0) {
     type = edgeEnhancement;
-  else if (strcmp(name, "meanFilter") == 0)
+  } else if (strcmp(name, "meanFilter") == 0) {
     type = meanFilter;
-  else {
+  } else {
     fprintf(stderr, "Unknown kernel: %s\n", name);
     return NULL;
   }
   return getFilter(type);
+}
+
+static int parseParallelType(const char *str, enum TypeParallel *out) {
+  if (strcmp(str, "horizontal") == 0) {
+    *out = horizontal;
+  } else if (strcmp(str, "vertical") == 0) {
+    *out = vertical;
+  } else if (strcmp(str, "block") == 0) {
+    *out = block;
+  } else if (strcmp(str, "pixel") == 0) {
+    *out = pixel;
+  } else {
+    fprintf(stderr, "Unknown parallel type: %s\n", str);
+    return 1;
+  }
+  return 0;
+}
+
+static int parseLong(const char *str, long *out) {
+  char *end;
+  errno = 0;
+  *out = strtol(str, &end, 10);
+  return (errno != 0 || end == str || *end != '\0') ? 1 : 0;
+}
+
+static int parseSingleOption(const char *arg, struct Config *cfg) {
+  if (strcmp(arg, "--parallel") == 0) {
+    cfg->parallel = 1;
+  } else if (strncmp(arg, "--parallel=", 11) == 0) {
+    cfg->parallel = 1;
+    if (parseParallelType(arg + 11, &cfg->parallelType) != 0) {
+      return 1;
+    }
+  } else if (strncmp(arg, "--threads=", 10) == 0) {
+    long val;
+    if (parseLong(arg + 10, &val) != 0 || val < 1) {
+      fprintf(stderr, "Invalid thread count: %s\n", arg + 10);
+      return 1;
+    }
+    cfg->numThreads = (int)val;
+  } else if (strncmp(arg, "--repeat=", 9) == 0) {
+    long val;
+    cfg->repeat = (parseLong(arg + 9, &val) == 0 && val >= 1) ? (int)val : 1;
+  } else if (strncmp(arg, "--kernel=", 9) == 0) {
+    cfg->kernelFile = arg + 9;
+  } else if (strcmp(arg, "--pipeline") == 0) {
+    cfg->pipeline = 1;
+  } else if (strncmp(arg, "--pipeline=", 11) == 0) {
+    cfg->pipeline = 1;
+    long val;
+    if (parseLong(arg + 11, &val) != 0 || val < 1) {
+      fprintf(stderr, "Invalid worker count: %s\n", arg + 11);
+      return 1;
+    }
+    cfg->pipelineWorkers = (int)val;
+  } else if (strncmp(arg, "--queue-size=", 13) == 0) {
+    long val;
+    if (parseLong(arg + 13, &val) != 0 || val < 1) {
+      fprintf(stderr, "Invalid queue size: %s\n", arg + 13);
+      return 1;
+    }
+    cfg->queueSize = (int)val;
+  } else if (strncmp(arg, "--outdir=", 9) == 0) {
+    cfg->outdir = arg + 9;
+  } else if (strncmp(arg, "--indir=", 8) == 0) {
+    cfg->indir = arg + 8;
+  } else {
+    fprintf(stderr, "Unknown option: %s\n", arg);
+    return 1;
+  }
+  return 0;
+}
+
+static int parseArgs(int argc, char *argv[], struct Config *cfg,
+                     const char **positional, int *npos) {
+  *npos = 0;
+  for (int i = 1; i < argc; i++) {
+    if (argv[i][0] == '-') {
+      if (parseSingleOption(argv[i], cfg) != 0) {
+        return 1;
+      }
+    } else {
+      positional[(*npos)++] = argv[i];
+    }
+  }
+  return 0;
+}
+
+static int resolvePositional(struct Config *cfg, const char **positional,
+                             int npos) {
+  if (cfg->kernelFile && cfg->kernelName) {
+    fprintf(stderr, "Cannot use both a kernel name and --kernel=file\n");
+    return 1;
+  }
+  if (cfg->pipeline) {
+    if (!cfg->outdir) {
+      fprintf(stderr, "--outdir is required in pipeline mode\n");
+      return 1;
+    }
+    if (!cfg->indir) {
+      fprintf(stderr, "--indir is required in pipeline mode\n");
+      return 1;
+    }
+    if (!cfg->kernelFile) {
+      if (npos < 1) {
+        fprintf(stderr, "Pipeline mode requires a kernel name\n");
+        return 1;
+      }
+      cfg->kernelName = positional[0];
+    }
+  } else {
+    int kernelPos = cfg->kernelFile ? 2 : 3;
+    if (npos < kernelPos) {
+      fprintf(stderr, "Single mode requires: input output kernel\n");
+      return 1;
+    }
+    cfg->inputImage  = positional[0];
+    cfg->outputImage = positional[1];
+    if (!cfg->kernelFile) {
+      cfg->kernelName = positional[2];
+    }
+  }
+  if (!cfg->kernelName && !cfg->kernelFile) {
+    fprintf(stderr, "No kernel specified\n");
+    return 1;
+  }
+  return 0;
+}
+
+static double elapsedMs(struct timespec t0, struct timespec t1) {
+  return ((double)(t1.tv_sec - t0.tv_sec) * 1000.0) +
+         ((double)(t1.tv_nsec - t0.tv_nsec) / 1e6);
+}
+
+static int runSingle(const struct Config *cfg, const struct Filter *filter,
+                     struct Filter *customFilter) {
+  struct timespec t0;
+  struct timespec t1;
+  clock_gettime(CLOCK_MONOTONIC, &t0);
+
+  struct BmpImage image;
+  if (readBmp(cfg->inputImage, &image) != 0) {
+    free(customFilter->kernel);
+    return 1;
+  }
+
+  for (int r = 0; r < cfg->repeat; r++) {
+    if (cfg->parallel) {
+      applyConvolutionParallel(&image, filter, cfg->numThreads,
+                               cfg->parallelType);
+    } else {
+      applyConvolution(&image, filter);
+    }
+  }
+
+  int ret = 0;
+  if (writeBmp(cfg->outputImage, &image) != 0) {
+    ret = 1;
+  }
+
+  clock_gettime(CLOCK_MONOTONIC, &t1);
+  printf("TIME_MS: %.3f\n", elapsedMs(t0, t1) / (double)cfg->repeat);
+
+  free(image.palette);
+  free(image.data);
+  return ret;
 }
 
 int main(int argc, char *argv[]) {
@@ -72,179 +255,54 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  const char *kernelName = NULL;
-  const char *kernelFile = NULL;
-  const char *outdir = NULL;
-  const char *indir = NULL;
-  int parallel = 0;
-  int numThreads = (int)sysconf(_SC_NPROCESSORS_ONLN);
-  int repeat = 1;
-  int pipeline = 0;
-  int pipelineWorkers = 1;
-  int queueSize = 8;
-  enum TypeParallel parallelType = horizontal;
+  struct Config cfg = {
+      .parallel        = 0,
+      .numThreads      = (int)sysconf(_SC_NPROCESSORS_ONLN),
+      .repeat          = 1,
+      .pipeline        = 0,
+      .pipelineWorkers = 1,
+      .queueSize       = 8,
+      .parallelType    = horizontal,
+  };
 
-  /* positional args: in single mode [input, output, kernel],
-                      in pipeline mode [kernel, file1, file2, ...] */
   const char *positional[argc];
-  int npos = 0;
+  int         npos = 0;
 
-  for (int i = 1; i < argc; i++) {
-    if (strcmp(argv[i], "--parallel") == 0) {
-      parallel = 1;
-    } else if (strncmp(argv[i], "--parallel=", 11) == 0) {
-      parallel = 1;
-      if (strcmp(argv[i] + 11, "horizontal") == 0)
-        parallelType = horizontal;
-      else if (strcmp(argv[i] + 11, "vertical") == 0)
-        parallelType = vertical;
-      else if (strcmp(argv[i] + 11, "block") == 0)
-        parallelType = block;
-      else if (strcmp(argv[i] + 11, "pixel") == 0)
-        parallelType = pixel;
-      else {
-        fprintf(stderr, "Unknown parallel type: %s\n", argv[i] + 11);
-        usage(argv[0]);
-        return 1;
-      }
-    } else if (strncmp(argv[i], "--threads=", 10) == 0) {
-      numThreads = atoi(argv[i] + 10);
-      if (numThreads < 1) {
-        fprintf(stderr, "Invalid thread count: %s\n", argv[i] + 10);
-        return 1;
-      }
-    } else if (strncmp(argv[i], "--repeat=", 9) == 0) {
-      repeat = atoi(argv[i] + 9);
-      if (repeat < 1)
-        repeat = 1;
-    } else if (strncmp(argv[i], "--kernel=", 9) == 0) {
-      kernelFile = argv[i] + 9;
-    } else if (strcmp(argv[i], "--pipeline") == 0) {
-      pipeline = 1;
-    } else if (strncmp(argv[i], "--pipeline=", 11) == 0) {
-      pipeline = 1;
-      pipelineWorkers = atoi(argv[i] + 11);
-      if (pipelineWorkers < 1) {
-        fprintf(stderr, "Invalid worker count: %s\n", argv[i] + 11);
-        return 1;
-      }
-    } else if (strncmp(argv[i], "--queue-size=", 13) == 0) {
-      queueSize = atoi(argv[i] + 13);
-      if (queueSize < 1) {
-        fprintf(stderr, "Invalid queue size: %s\n", argv[i] + 13);
-        return 1;
-      }
-    } else if (strncmp(argv[i], "--outdir=", 9) == 0) {
-      outdir = argv[i] + 9;
-    } else if (strncmp(argv[i], "--indir=", 8) == 0) {
-      indir = argv[i] + 8;
-    } else if (argv[i][0] != '-') {
-      positional[npos++] = argv[i];
-    } else {
-      fprintf(stderr, "Unknown option: %s\n", argv[i]);
-      usage(argv[0]);
-      return 1;
-    }
-  }
-
-  if (kernelFile && kernelName) {
-    fprintf(stderr, "Cannot use both a kernel name and --kernel=file\n");
+  if (parseArgs(argc, argv, &cfg, positional, &npos) != 0) {
+    usage(argv[0]);
     return 1;
   }
-
-  const char *inputImage = NULL;
-  const char *outputImage = NULL;
-
-  if (pipeline) {
-    if (!outdir) {
-      fprintf(stderr, "--outdir is required in pipeline mode\n");
-      return 1;
-    }
-    if (!indir) {
-      fprintf(stderr, "--indir is required in pipeline mode\n");
-      return 1;
-    }
-    if (!kernelFile) {
-      if (npos < 1) {
-        fprintf(stderr, "Pipeline mode requires a kernel name\n");
-        usage(argv[0]);
-        return 1;
-      }
-      kernelName = positional[0];
-    }
-  } else {
-    int kernelPos = kernelFile ? 2 : 3;
-    if (npos < kernelPos) {
-      fprintf(stderr, "Single mode requires: input output kernel\n");
-      usage(argv[0]);
-      return 1;
-    }
-    inputImage = positional[0];
-    outputImage = positional[1];
-    if (!kernelFile)
-      kernelName = positional[2];
-  }
-
-  if (!kernelName && !kernelFile) {
-    fprintf(stderr, "No kernel specified\n");
+  if (resolvePositional(&cfg, positional, npos) != 0) {
     usage(argv[0]);
     return 1;
   }
 
-  struct Filter customFilter = {0};
+  struct Filter        customFilter = {0};
   const struct Filter *filter;
 
-  if (kernelFile) {
-    if (loadFilterFromFile(kernelFile, &customFilter) != 0)
+  if (cfg.kernelFile) {
+    if (loadFilterFromFile(cfg.kernelFile, &customFilter) != 0) {
       return 1;
+    }
     filter = &customFilter;
   } else {
-    filter = resolveNamedKernel(kernelName);
-    if (!filter)
+    filter = resolveNamedKernel(cfg.kernelName);
+    if (!filter) {
       return 1;
+    }
   }
 
-  if (pipeline) {
-    struct timespec t0, t1;
+  if (cfg.pipeline) {
+    struct timespec t0;
+    struct timespec t1;
     clock_gettime(CLOCK_MONOTONIC, &t0);
-    runPipeline(indir, outdir, filter, pipelineWorkers, queueSize, parallel,
-                numThreads, parallelType);
+    runPipeline(cfg.indir, cfg.outdir, filter, cfg.pipelineWorkers,
+                cfg.queueSize, cfg.parallel, cfg.numThreads, cfg.parallelType);
     clock_gettime(CLOCK_MONOTONIC, &t1);
-    double elapsed_ms =
-        (t1.tv_sec - t0.tv_sec) * 1000.0 + (t1.tv_nsec - t0.tv_nsec) / 1e6;
-    printf("TIME_MS: %.3f\n", elapsed_ms);
+    printf("TIME_MS: %.3f\n", elapsedMs(t0, t1));
     free(customFilter.kernel);
     return 0;
   }
 
-  struct timespec t0, t1;
-  clock_gettime(CLOCK_MONOTONIC, &t0);
-
-  struct BmpImage image;
-  if (readBmp(inputImage, &image) != 0) {
-    free(customFilter.kernel);
-    return 1;
-  }
-
-  for (int r = 0; r < repeat; r++) {
-    if (parallel)
-      applyConvolutionParallel(&image, filter, numThreads, parallelType);
-    else
-      applyConvolution(&image, filter);
-  }
-
-  int ret = 0;
-  if (writeBmp(outputImage, &image) != 0)
-    ret = 1;
-
-  clock_gettime(CLOCK_MONOTONIC, &t1);
-  double elapsed_ms =
-      ((t1.tv_sec - t0.tv_sec) * 1000.0 + (t1.tv_nsec - t0.tv_nsec) / 1e6) /
-      repeat;
-  printf("TIME_MS: %.3f\n", elapsed_ms);
-
-  free(image.palette);
-  free(image.data);
-  free(customFilter.kernel);
-  return ret;
+  return runSingle(&cfg, filter, &customFilter);
 }
