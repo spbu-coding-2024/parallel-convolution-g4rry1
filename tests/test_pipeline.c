@@ -25,14 +25,14 @@ static void cleanDir(const char *dir) {
   DIR *d = opendir(dir);
   if (!d) {
     return;
-}
+  }
   struct dirent *e;
   char path[PATH_MAX];
   while ((e = readdir(d)) != NULL) {
     size_t len = strlen(e->d_name);
     if (len < 4 || strcasecmp(e->d_name + len - 4, ".bmp") != 0) {
       continue;
-}
+    }
     snprintf(path, sizeof(path), "%s/%s", dir, e->d_name);
     unlink(path);
   }
@@ -66,8 +66,8 @@ static void checkFile(const char *indir, const char *outdir,
     for (int x = 0; x < (int)expected.info.biWidth; x++) {
       assert_int_equal(expected.data[(y * stride) + x],
                        actual.data[(y * stride) + x]);
-}
-}
+    }
+  }
 
   freeImage(&expected);
   freeImage(&actual);

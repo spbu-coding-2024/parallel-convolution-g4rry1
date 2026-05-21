@@ -43,9 +43,8 @@ static void *threadConvolutionPixel(void *args) {
     double brightness = 0.0;
     for (int filterY = 0; filterY < targs->filter->height; filterY++) {
       for (int filterX = 0; filterX < targs->filter->width; filterX++) {
-        int imageX =
-            (x - (targs->filter->width / 2) + filterX + targs->width) %
-            targs->width;
+        int imageX = (x - (targs->filter->width / 2) + filterX + targs->width) %
+                     targs->width;
         int imageY =
             (y - (targs->filter->height / 2) + filterY + targs->height) %
             targs->height;

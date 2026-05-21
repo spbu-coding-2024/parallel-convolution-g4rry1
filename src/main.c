@@ -11,18 +11,18 @@
 #include <unistd.h>
 
 struct Config {
-  const char       *inputImage;
-  const char       *outputImage;
-  const char       *kernelName;
-  const char       *kernelFile;
-  const char       *outdir;
-  const char       *indir;
-  int               parallel;
-  int               numThreads;
-  int               repeat;
-  int               pipeline;
-  int               pipelineWorkers;
-  int               queueSize;
+  const char *inputImage;
+  const char *outputImage;
+  const char *kernelName;
+  const char *kernelFile;
+  const char *outdir;
+  const char *indir;
+  int parallel;
+  int numThreads;
+  int repeat;
+  int pipeline;
+  int pipelineWorkers;
+  int queueSize;
   enum TypeParallel parallelType;
 };
 
@@ -197,7 +197,7 @@ static int resolvePositional(struct Config *cfg, const char **positional,
       fprintf(stderr, "Single mode requires: input output kernel\n");
       return 1;
     }
-    cfg->inputImage  = positional[0];
+    cfg->inputImage = positional[0];
     cfg->outputImage = positional[1];
     if (!cfg->kernelFile) {
       cfg->kernelName = positional[2];
@@ -257,17 +257,17 @@ int main(int argc, char *argv[]) {
   }
 
   struct Config cfg = {
-      .parallel        = 0,
-      .numThreads      = (int)sysconf(_SC_NPROCESSORS_ONLN),
-      .repeat          = 1,
-      .pipeline        = 0,
+      .parallel = 0,
+      .numThreads = (int)sysconf(_SC_NPROCESSORS_ONLN),
+      .repeat = 1,
+      .pipeline = 0,
       .pipelineWorkers = 1,
-      .queueSize       = 8,
-      .parallelType    = horizontal,
+      .queueSize = 8,
+      .parallelType = horizontal,
   };
 
   const char *positional[argc];
-  int         npos = 0;
+  int npos = 0;
 
   if (parseArgs(argc, argv, &cfg, positional, &npos) != 0) {
     usage(argv[0]);
@@ -278,7 +278,7 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  struct Filter        customFilter = {0};
+  struct Filter customFilter = {0};
   const struct Filter *filter;
 
   if (cfg.kernelFile) {

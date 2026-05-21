@@ -48,7 +48,7 @@ static struct BmpImage makeImageFromPixels(int w, int h,
   img.data = malloc((size_t)stride * h);
   for (int y = 0; y < h; y++) {
     memcpy(&img.data[(size_t)y * stride], &pixels[(size_t)y * w], w);
-}
+  }
   return img;
 }
 
@@ -63,9 +63,10 @@ static void check_vs_reference(const struct Filter *filter,
 
   for (int y = 0; y < fs->h; y++) {
     for (int x = 0; x < fs->w; x++) {
-      assert_uint8_near(expected[(y * fs->w) + x], img.data[(y * stride) + x], 1);
-}
-}
+      assert_uint8_near(expected[(y * fs->w) + x], img.data[(y * stride) + x],
+                        1);
+    }
+  }
   freeImage(&img);
 }
 
@@ -74,7 +75,7 @@ static void test_reference_identity(void **state) {
   for (int i = 0; i < N_FIXTURES; i++) {
     check_vs_reference(&filterIdentity, &kFixtures[i],
                        kFixtures[i].expected_identity);
-}
+  }
 }
 
 static void test_reference_gaussian_blur(void **state) {
@@ -82,7 +83,7 @@ static void test_reference_gaussian_blur(void **state) {
   for (int i = 0; i < N_FIXTURES; i++) {
     check_vs_reference(&filterGaussianBlur, &kFixtures[i],
                        kFixtures[i].expected_gaussian_blur);
-}
+  }
 }
 
 static void test_reference_edge_detection(void **state) {
@@ -90,7 +91,7 @@ static void test_reference_edge_detection(void **state) {
   for (int i = 0; i < N_FIXTURES; i++) {
     check_vs_reference(&filterEdgeDetection, &kFixtures[i],
                        kFixtures[i].expected_edge_detection);
-}
+  }
 }
 
 static void test_reference_sharpen(void **state) {
@@ -98,7 +99,7 @@ static void test_reference_sharpen(void **state) {
   for (int i = 0; i < N_FIXTURES; i++) {
     check_vs_reference(&filterSharpen, &kFixtures[i],
                        kFixtures[i].expected_sharpen);
-}
+  }
 }
 
 static void test_reference_emboss(void **state) {
@@ -106,7 +107,7 @@ static void test_reference_emboss(void **state) {
   for (int i = 0; i < N_FIXTURES; i++) {
     check_vs_reference(&filterEmboss, &kFixtures[i],
                        kFixtures[i].expected_emboss);
-}
+  }
 }
 
 int main(void) {

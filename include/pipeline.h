@@ -6,11 +6,9 @@
 
 struct PipelineTask {
   struct BmpImage *image;
-  char            *outpath;
+  char *outpath;
 };
 
 void runPipeline(const char *indir, const char *outdir,
-                 const struct Filter *filter,
-                 int workers, int queueSize,
-                 int parallel, int numThreads,
-                 enum TypeParallel parallelType);
+                 const struct Filter *filter, int workers, int queueSize,
+                 int parallel, int numThreads, enum TypeParallel parallelType);

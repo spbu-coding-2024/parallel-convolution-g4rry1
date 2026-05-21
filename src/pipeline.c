@@ -13,18 +13,18 @@
 
 struct ReaderArgs {
   BoundedQueue *q1;
-  const char   *indir;
-  const char   *outdir;
+  const char *indir;
+  const char *outdir;
 };
 
 struct WorkerArgs {
-  BoundedQueue        *q1;
-  BoundedQueue        *q2;
+  BoundedQueue *q1;
+  BoundedQueue *q2;
   const struct Filter *filter;
-  int                  parallel;
-  int                  numThreads;
-  enum TypeParallel    parallelType;
-  atomic_int          *activeWorkers;
+  int parallel;
+  int numThreads;
+  enum TypeParallel parallelType;
+  atomic_int *activeWorkers;
 };
 
 struct WriterArgs {
@@ -73,7 +73,7 @@ static void *readerThread(void *arg) {
     snprintf(outpath, PATH_MAX, "%s/%s", args->outdir, entry->d_name);
 
     struct PipelineTask *task = malloc(sizeof(struct PipelineTask));
-    task->image   = img;
+    task->image = img;
     task->outpath = outpath;
 
     if (bq_push(args->q1, task) != 0) {
@@ -88,7 +88,7 @@ static void *readerThread(void *arg) {
 }
 
 static void *workerThread(void *arg) {
-  struct WorkerArgs   *args = arg;
+  struct WorkerArgs *args = arg;
   struct PipelineTask *task;
 
   while (bq_pop(args->q1, &task) == 0) {
@@ -112,7 +112,7 @@ static void *workerThread(void *arg) {
 }
 
 static void *writerThread(void *arg) {
-  struct WriterArgs   *args = arg;
+  struct WriterArgs *args = arg;
   struct PipelineTask *task;
 
   while (bq_pop(args->q2, &task) == 0) {
@@ -135,19 +135,19 @@ void runPipeline(const char *indir, const char *outdir,
 
   atomic_int activeWorkers = workers;
 
-  pthread_t         reader;
+  pthread_t reader;
   struct ReaderArgs rargs = {&q1, indir, outdir};
   pthread_create(&reader, NULL, readerThread, &rargs);
 
-  pthread_t        *workerThreads = malloc(workers * sizeof(pthread_t));
-  struct WorkerArgs *wargs        = malloc(workers * sizeof(struct WorkerArgs));
+  pthread_t *workerThreads = malloc(workers * sizeof(pthread_t));
+  struct WorkerArgs *wargs = malloc(workers * sizeof(struct WorkerArgs));
   for (int i = 0; i < workers; i++) {
-    wargs[i] = (struct WorkerArgs){&q1, &q2, filter, parallel, numThreads,
-                                   parallelType, &activeWorkers};
+    wargs[i] = (struct WorkerArgs){
+        &q1, &q2, filter, parallel, numThreads, parallelType, &activeWorkers};
     pthread_create(&workerThreads[i], NULL, workerThread, &wargs[i]);
   }
 
-  pthread_t         writer;
+  pthread_t writer;
   struct WriterArgs wrargs = {&q2};
   pthread_create(&writer, NULL, writerThread, &wrargs);
 

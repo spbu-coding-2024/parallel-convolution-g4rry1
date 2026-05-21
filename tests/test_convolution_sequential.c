@@ -27,7 +27,7 @@ static struct BmpImage makeRandomImage(int w, int h, unsigned int seed) {
   srand(seed);
   for (int i = 0; i < stride * h; i++) {
     img.data[i] = (uint8_t)(rand() % 256);
-}
+  }
   return img;
 }
 
@@ -49,8 +49,8 @@ static void test_identity_preserves_random_image(void **state) {
   for (int y = 0; y < h; y++) {
     for (int x = 0; x < w; x++) {
       assert_int_equal(expected[(y * stride) + x], img.data[(y * stride) + x]);
-}
-}
+    }
+  }
 
   free(expected);
   freeImage(&img);
@@ -70,8 +70,8 @@ static void test_gaussian_blur_uniform_unchanged(void **state) {
   for (int y = 0; y < h; y++) {
     for (int x = 0; x < w; x++) {
       assert_int_equal(128, img.data[(y * stride) + x]);
-}
-}
+    }
+  }
 
   freeImage(&img);
 }
@@ -90,8 +90,8 @@ static void test_edge_detection_uniform_gives_zero(void **state) {
   for (int y = 0; y < h; y++) {
     for (int x = 0; x < w; x++) {
       assert_int_equal(0, img.data[(y * stride) + x]);
-}
-}
+    }
+  }
 
   freeImage(&img);
 }
@@ -110,8 +110,8 @@ static void test_sharpen_uniform_unchanged(void **state) {
   for (int y = 0; y < h; y++) {
     for (int x = 0; x < w; x++) {
       assert_int_equal(150, img.data[(y * stride) + x]);
-}
-}
+    }
+  }
 
   freeImage(&img);
 }
@@ -134,9 +134,9 @@ static void test_edge_detection_single_bright_center_3x3(void **state) {
     for (int x = 0; x < w; x++) {
       if (!(x == 1 && y == 1)) {
         assert_int_equal(0, img.data[(y * stride) + x]);
-}
-}
-}
+      }
+    }
+  }
 
   freeImage(&img);
 }
@@ -155,8 +155,8 @@ static void test_identity_boundary_values(void **state) {
   for (int y = 0; y < h; y++) {
     for (int x = 0; x < w; x++) {
       assert_int_equal(0, black.data[(y * stride) + x]);
-}
-}
+    }
+  }
   freeImage(&black);
 
   struct BmpImage white = makeUniformImage(w, h, 255);
@@ -165,8 +165,8 @@ static void test_identity_boundary_values(void **state) {
   for (int y = 0; y < h; y++) {
     for (int x = 0; x < w; x++) {
       assert_int_equal(255, white.data[(y * stride) + x]);
-}
-}
+    }
+  }
   freeImage(&white);
 }
 
@@ -194,8 +194,8 @@ static void test_composition_shift_right_then_left(void **state) {
   for (int y = 0; y < h; y++) {
     for (int x = 0; x < w; x++) {
       assert_int_equal(original[(y * stride) + x], img.data[(y * stride) + x]);
-}
-}
+    }
+  }
   free(original);
   freeImage(&img);
 }
@@ -214,8 +214,8 @@ static void test_zero_kernel_gives_zero(void **state) {
   for (int y = 0; y < h; y++) {
     for (int x = 0; x < w; x++) {
       assert_int_equal(0, img.data[(y * stride) + x]);
-}
-}
+    }
+  }
   freeImage(&img);
 }
 
@@ -232,8 +232,8 @@ static void test_zero_kernel_with_bias(void **state) {
   for (int y = 0; y < h; y++) {
     for (int x = 0; x < w; x++) {
       assert_int_equal(100, img.data[(y * stride) + x]);
-}
-}
+    }
+  }
   freeImage(&img);
 }
 
@@ -261,8 +261,8 @@ static void test_identity_various_sizes(void **state) {
     for (int y = 0; y < h; y++) {
       for (int x = 0; x < w; x++) {
         assert_int_equal(orig[(y * stride) + x], img.data[(y * stride) + x]);
-}
-}
+      }
+    }
     free(orig);
     freeImage(&img);
   }
@@ -283,8 +283,8 @@ static void test_edge_detection_various_sizes(void **state) {
       for (int y = 0; y < h; y++) {
         for (int x = 0; x < w; x++) {
           assert_int_equal(0, img.data[(y * stride) + x]);
-}
-}
+        }
+      }
       freeImage(&img);
     }
   }
@@ -307,8 +307,8 @@ static void test_factor_doubles_output(void **state) {
       for (int y = 0; y < h; y++) {
         for (int x = 0; x < w; x++) {
           assert_int_equal(expected, img.data[(y * stride) + x]);
-}
-}
+        }
+      }
       freeImage(&img);
     }
   }
@@ -328,8 +328,8 @@ static void test_bias_shifts_output(void **state) {
     for (int y = 0; y < h; y++) {
       for (int x = 0; x < w; x++) {
         assert_int_equal(128, img.data[(y * stride) + x]);
-}
-}
+      }
+    }
     freeImage(&img);
   }
 }
@@ -353,8 +353,8 @@ static void test_composition_horizontal_various_sizes(void **state) {
     for (int y = 0; y < h; y++) {
       for (int x = 0; x < w; x++) {
         assert_int_equal(orig[(y * stride) + x], img.data[(y * stride) + x]);
-}
-}
+      }
+    }
     free(orig);
     freeImage(&img);
   }
@@ -381,8 +381,8 @@ static void test_composition_shift_vertical(void **state) {
     for (int y = 0; y < h; y++) {
       for (int x = 0; x < w; x++) {
         assert_int_equal(orig[(y * stride) + x], img.data[(y * stride) + x]);
-}
-}
+      }
+    }
     free(orig);
     freeImage(&img);
   }

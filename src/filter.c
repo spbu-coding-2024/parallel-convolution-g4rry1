@@ -75,8 +75,8 @@ int loadFilterFromFile(const char *path, struct Filter *out) {
     return 1;
   }
 
-  int    width;
-  int    height;
+  int width;
+  int height;
   double factor;
   double bias;
   if (fscanf(f, "%d %d %lf %lf", &width, &height, &factor, &bias) != 4 ||
