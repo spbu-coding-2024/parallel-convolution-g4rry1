@@ -23,14 +23,16 @@ static void freeImage(struct BmpImage *img) {
 /* Remove all .bmp files from dir, then rmdir. */
 static void cleanDir(const char *dir) {
   DIR *d = opendir(dir);
-  if (!d)
+  if (!d) {
     return;
+}
   struct dirent *e;
   char path[PATH_MAX];
   while ((e = readdir(d)) != NULL) {
     size_t len = strlen(e->d_name);
-    if (len < 4 || strcasecmp(e->d_name + len - 4, ".bmp") != 0)
+    if (len < 4 || strcasecmp(e->d_name + len - 4, ".bmp") != 0) {
       continue;
+}
     snprintf(path, sizeof(path), "%s/%s", dir, e->d_name);
     unlink(path);
   }
@@ -45,11 +47,13 @@ static void cleanDir(const char *dir) {
  */
 static void checkFile(const char *indir, const char *outdir,
                       const char *filename, const struct Filter *filter) {
-  char inpath[PATH_MAX], outpath[PATH_MAX];
+  char inpath[PATH_MAX];
+  char outpath[PATH_MAX];
   snprintf(inpath, sizeof(inpath), "%s/%s", indir, filename);
   snprintf(outpath, sizeof(outpath), "%s/%s", outdir, filename);
 
-  struct BmpImage expected = {0}, actual = {0};
+  struct BmpImage expected = {0};
+  struct BmpImage actual = {0};
   assert_int_equal(0, readBmp(inpath, &expected));
   assert_int_equal(0, readBmp(outpath, &actual));
 
@@ -58,10 +62,12 @@ static void checkFile(const char *indir, const char *outdir,
   int stride = bmpStride(&expected);
   int h = expected.info.biHeight < 0 ? -expected.info.biHeight
                                      : (int)expected.info.biHeight;
-  for (int y = 0; y < h; y++)
-    for (int x = 0; x < (int)expected.info.biWidth; x++)
-      assert_int_equal(expected.data[y * stride + x],
-                       actual.data[y * stride + x]);
+  for (int y = 0; y < h; y++) {
+    for (int x = 0; x < (int)expected.info.biWidth; x++) {
+      assert_int_equal(expected.data[(y * stride) + x],
+                       actual.data[(y * stride) + x]);
+}
+}
 
   freeImage(&expected);
   freeImage(&actual);

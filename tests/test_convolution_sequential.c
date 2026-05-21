@@ -13,8 +13,8 @@ static struct BmpImage makeUniformImage(int w, int h, uint8_t fill) {
   img.info.biWidth = w;
   img.info.biHeight = h;
   int stride = bmpStride(&img);
-  img.data = malloc(stride * h);
-  memset(img.data, fill, stride * h);
+  img.data = malloc((size_t)stride * h);
+  memset(img.data, fill, (size_t)stride * h);
   return img;
 }
 
@@ -23,10 +23,11 @@ static struct BmpImage makeRandomImage(int w, int h, unsigned int seed) {
   img.info.biWidth = w;
   img.info.biHeight = h;
   int stride = bmpStride(&img);
-  img.data = malloc(stride * h);
+  img.data = malloc((size_t)stride * h);
   srand(seed);
-  for (int i = 0; i < stride * h; i++)
+  for (int i = 0; i < stride * h; i++) {
     img.data[i] = (uint8_t)(rand() % 256);
+}
   return img;
 }
 
@@ -35,18 +36,21 @@ static void freeImage(struct BmpImage *img) { free(img->data); }
 // identity filter must not change any pixel of a random image
 static void test_identity_preserves_random_image(void **state) {
   (void)state;
-  int w = 64, h = 64;
+  int w = 64;
+  int h = 64;
   struct BmpImage img = makeRandomImage(w, h, 42);
   int stride = bmpStride(&img);
 
-  uint8_t *expected = malloc(stride * h);
-  memcpy(expected, img.data, stride * h);
+  uint8_t *expected = malloc((size_t)stride * h);
+  memcpy(expected, img.data, (size_t)stride * h);
 
   applyConvolution(&img, &filterIdentity);
 
-  for (int y = 0; y < h; y++)
-    for (int x = 0; x < w; x++)
-      assert_int_equal(expected[y * stride + x], img.data[y * stride + x]);
+  for (int y = 0; y < h; y++) {
+    for (int x = 0; x < w; x++) {
+      assert_int_equal(expected[(y * stride) + x], img.data[(y * stride) + x]);
+}
+}
 
   free(expected);
   freeImage(&img);
@@ -56,15 +60,18 @@ static void test_identity_preserves_random_image(void **state) {
 // (kernel sum = 16, factor = 1/16, 128 * 16 * (1/16) = 128)
 static void test_gaussian_blur_uniform_unchanged(void **state) {
   (void)state;
-  int w = 32, h = 32;
+  int w = 32;
+  int h = 32;
   struct BmpImage img = makeUniformImage(w, h, 128);
   int stride = bmpStride(&img);
 
   applyConvolution(&img, &filterGaussianBlur);
 
-  for (int y = 0; y < h; y++)
-    for (int x = 0; x < w; x++)
-      assert_int_equal(128, img.data[y * stride + x]);
+  for (int y = 0; y < h; y++) {
+    for (int x = 0; x < w; x++) {
+      assert_int_equal(128, img.data[(y * stride) + x]);
+}
+}
 
   freeImage(&img);
 }
@@ -73,15 +80,18 @@ static void test_gaussian_blur_uniform_unchanged(void **state) {
 // (kernel sum = 0, so brightness = 0 for any uniform input)
 static void test_edge_detection_uniform_gives_zero(void **state) {
   (void)state;
-  int w = 32, h = 32;
+  int w = 32;
+  int h = 32;
   struct BmpImage img = makeUniformImage(w, h, 200);
   int stride = bmpStride(&img);
 
   applyConvolution(&img, &filterEdgeDetection);
 
-  for (int y = 0; y < h; y++)
-    for (int x = 0; x < w; x++)
-      assert_int_equal(0, img.data[y * stride + x]);
+  for (int y = 0; y < h; y++) {
+    for (int x = 0; x < w; x++) {
+      assert_int_equal(0, img.data[(y * stride) + x]);
+}
+}
 
   freeImage(&img);
 }
@@ -90,15 +100,18 @@ static void test_edge_detection_uniform_gives_zero(void **state) {
 // (kernel sum = 1, factor = 1.0, no division — result is exact)
 static void test_sharpen_uniform_unchanged(void **state) {
   (void)state;
-  int w = 32, h = 32;
+  int w = 32;
+  int h = 32;
   struct BmpImage img = makeUniformImage(w, h, 150);
   int stride = bmpStride(&img);
 
   applyConvolution(&img, &filterSharpen);
 
-  for (int y = 0; y < h; y++)
-    for (int x = 0; x < w; x++)
-      assert_int_equal(150, img.data[y * stride + x]);
+  for (int y = 0; y < h; y++) {
+    for (int x = 0; x < w; x++) {
+      assert_int_equal(150, img.data[(y * stride) + x]);
+}
+}
 
   freeImage(&img);
 }
@@ -108,7 +121,8 @@ static void test_sharpen_uniform_unchanged(void **state) {
 //                 others: -255 → clamp → 0
 static void test_edge_detection_single_bright_center_3x3(void **state) {
   (void)state;
-  int w = 3, h = 3;
+  int w = 3;
+  int h = 3;
   struct BmpImage img = makeUniformImage(w, h, 0);
   int stride = bmpStride(&img);
   img.data[stride + 1] = 255;
@@ -116,10 +130,13 @@ static void test_edge_detection_single_bright_center_3x3(void **state) {
   applyConvolution(&img, &filterEdgeDetection);
 
   assert_int_equal(255, img.data[stride + 1]);
-  for (int y = 0; y < h; y++)
-    for (int x = 0; x < w; x++)
-      if (!(x == 1 && y == 1))
-        assert_int_equal(0, img.data[y * stride + x]);
+  for (int y = 0; y < h; y++) {
+    for (int x = 0; x < w; x++) {
+      if (!(x == 1 && y == 1)) {
+        assert_int_equal(0, img.data[(y * stride) + x]);
+}
+}
+}
 
   freeImage(&img);
 }
@@ -128,23 +145,28 @@ static void test_edge_detection_single_bright_center_3x3(void **state) {
 // identity
 static void test_identity_boundary_values(void **state) {
   (void)state;
-  int w = 16, h = 16;
+  int w = 16;
+  int h = 16;
   int stride;
 
   struct BmpImage black = makeUniformImage(w, h, 0);
   applyConvolution(&black, &filterIdentity);
   stride = bmpStride(&black);
-  for (int y = 0; y < h; y++)
-    for (int x = 0; x < w; x++)
-      assert_int_equal(0, black.data[y * stride + x]);
+  for (int y = 0; y < h; y++) {
+    for (int x = 0; x < w; x++) {
+      assert_int_equal(0, black.data[(y * stride) + x]);
+}
+}
   freeImage(&black);
 
   struct BmpImage white = makeUniformImage(w, h, 255);
   applyConvolution(&white, &filterIdentity);
   stride = bmpStride(&white);
-  for (int y = 0; y < h; y++)
-    for (int x = 0; x < w; x++)
-      assert_int_equal(255, white.data[y * stride + x]);
+  for (int y = 0; y < h; y++) {
+    for (int x = 0; x < w; x++) {
+      assert_int_equal(255, white.data[(y * stride) + x]);
+}
+}
   freeImage(&white);
 }
 
@@ -153,12 +175,13 @@ static void test_identity_boundary_values(void **state) {
 // kernel[1][2]=1 shifts left:  output[y][x] = input[y][(x+1)%w]
 static void test_composition_shift_right_then_left(void **state) {
   (void)state;
-  int w = 16, h = 16;
+  int w = 16;
+  int h = 16;
   struct BmpImage img = makeRandomImage(w, h, 42);
   int stride = bmpStride(&img);
 
-  uint8_t *original = malloc(stride * h);
-  memcpy(original, img.data, stride * h);
+  uint8_t *original = malloc((size_t)stride * h);
+  memcpy(original, img.data, (size_t)stride * h);
 
   double kernelRight[] = {0, 0, 0, 1, 0, 0, 0, 0, 0};
   double kernelLeft[] = {0, 0, 0, 0, 0, 1, 0, 0, 0};
@@ -168,9 +191,11 @@ static void test_composition_shift_right_then_left(void **state) {
   applyConvolution(&img, &shiftRight);
   applyConvolution(&img, &shiftLeft);
 
-  for (int y = 0; y < h; y++)
-    for (int x = 0; x < w; x++)
-      assert_int_equal(original[y * stride + x], img.data[y * stride + x]);
+  for (int y = 0; y < h; y++) {
+    for (int x = 0; x < w; x++) {
+      assert_int_equal(original[(y * stride) + x], img.data[(y * stride) + x]);
+}
+}
   free(original);
   freeImage(&img);
 }
@@ -181,13 +206,16 @@ static void test_zero_kernel_gives_zero(void **state) {
   (void)state;
   double kernelZero[] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
   struct Filter zeroFilter = {3, 3, 1.0, 0.0, kernelZero};
-  int w = 32, h = 32;
+  int w = 32;
+  int h = 32;
   struct BmpImage img = makeRandomImage(w, h, 77);
   int stride = bmpStride(&img);
   applyConvolution(&img, &zeroFilter);
-  for (int y = 0; y < h; y++)
-    for (int x = 0; x < w; x++)
-      assert_int_equal(0, img.data[y * stride + x]);
+  for (int y = 0; y < h; y++) {
+    for (int x = 0; x < w; x++) {
+      assert_int_equal(0, img.data[(y * stride) + x]);
+}
+}
   freeImage(&img);
 }
 
@@ -196,13 +224,16 @@ static void test_zero_kernel_with_bias(void **state) {
   (void)state;
   double kernelZero[] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
   struct Filter biasOnly = {3, 3, 1.0, 100.0, kernelZero};
-  int w = 32, h = 32;
+  int w = 32;
+  int h = 32;
   struct BmpImage img = makeRandomImage(w, h, 88);
   int stride = bmpStride(&img);
   applyConvolution(&img, &biasOnly);
-  for (int y = 0; y < h; y++)
-    for (int x = 0; x < w; x++)
-      assert_int_equal(100, img.data[y * stride + x]);
+  for (int y = 0; y < h; y++) {
+    for (int x = 0; x < w; x++) {
+      assert_int_equal(100, img.data[(y * stride) + x]);
+}
+}
   freeImage(&img);
 }
 
@@ -220,15 +251,18 @@ static const struct {
 static void test_identity_various_sizes(void **state) {
   (void)state;
   for (int i = 0; i < N_SIZES; i++) {
-    int w = kSizes[i].w, h = kSizes[i].h;
+    int w = kSizes[i].w;
+    int h = kSizes[i].h;
     struct BmpImage img = makeRandomImage(w, h, kSizes[i].seed);
     int stride = bmpStride(&img);
-    uint8_t *orig = malloc(stride * h);
-    memcpy(orig, img.data, stride * h);
+    uint8_t *orig = malloc((size_t)stride * h);
+    memcpy(orig, img.data, (size_t)stride * h);
     applyConvolution(&img, &filterIdentity);
-    for (int y = 0; y < h; y++)
-      for (int x = 0; x < w; x++)
-        assert_int_equal(orig[y * stride + x], img.data[y * stride + x]);
+    for (int y = 0; y < h; y++) {
+      for (int x = 0; x < w; x++) {
+        assert_int_equal(orig[(y * stride) + x], img.data[(y * stride) + x]);
+}
+}
     free(orig);
     freeImage(&img);
   }
@@ -241,13 +275,16 @@ static void test_edge_detection_various_sizes(void **state) {
   const uint8_t fills[] = {0, 1, 100, 200, 255};
   for (int fi = 0; fi < (int)(sizeof(fills) / sizeof(fills[0])); fi++) {
     for (int i = 0; i < N_SIZES; i++) {
-      int w = kSizes[i].w, h = kSizes[i].h;
+      int w = kSizes[i].w;
+      int h = kSizes[i].h;
       struct BmpImage img = makeUniformImage(w, h, fills[fi]);
       int stride = bmpStride(&img);
       applyConvolution(&img, &filterEdgeDetection);
-      for (int y = 0; y < h; y++)
-        for (int x = 0; x < w; x++)
-          assert_int_equal(0, img.data[y * stride + x]);
+      for (int y = 0; y < h; y++) {
+        for (int x = 0; x < w; x++) {
+          assert_int_equal(0, img.data[(y * stride) + x]);
+}
+}
       freeImage(&img);
     }
   }
@@ -261,14 +298,17 @@ static void test_factor_doubles_output(void **state) {
   const uint8_t vals[] = {0, 1, 64, 100, 127};
   for (int vi = 0; vi < (int)(sizeof(vals) / sizeof(vals[0])); vi++) {
     for (int i = 0; i < N_SIZES; i++) {
-      int w = kSizes[i].w, h = kSizes[i].h;
+      int w = kSizes[i].w;
+      int h = kSizes[i].h;
       struct BmpImage img = makeUniformImage(w, h, vals[vi]);
       int stride = bmpStride(&img);
       applyConvolution(&img, &doubleFilter);
       uint8_t expected = (uint8_t)(vals[vi] * 2);
-      for (int y = 0; y < h; y++)
-        for (int x = 0; x < w; x++)
-          assert_int_equal(expected, img.data[y * stride + x]);
+      for (int y = 0; y < h; y++) {
+        for (int x = 0; x < w; x++) {
+          assert_int_equal(expected, img.data[(y * stride) + x]);
+}
+}
       freeImage(&img);
     }
   }
@@ -280,13 +320,16 @@ static void test_bias_shifts_output(void **state) {
   double kernelId[] = {0, 0, 0, 0, 1, 0, 0, 0, 0};
   struct Filter biasFilter = {3, 3, 1.0, 128.0, kernelId};
   for (int i = 0; i < N_SIZES; i++) {
-    int w = kSizes[i].w, h = kSizes[i].h;
+    int w = kSizes[i].w;
+    int h = kSizes[i].h;
     struct BmpImage img = makeUniformImage(w, h, 0);
     int stride = bmpStride(&img);
     applyConvolution(&img, &biasFilter);
-    for (int y = 0; y < h; y++)
-      for (int x = 0; x < w; x++)
-        assert_int_equal(128, img.data[y * stride + x]);
+    for (int y = 0; y < h; y++) {
+      for (int x = 0; x < w; x++) {
+        assert_int_equal(128, img.data[(y * stride) + x]);
+}
+}
     freeImage(&img);
   }
 }
@@ -299,16 +342,19 @@ static void test_composition_horizontal_various_sizes(void **state) {
   struct Filter shiftRight = {3, 3, 1.0, 0.0, kernelRight};
   struct Filter shiftLeft = {3, 3, 1.0, 0.0, kernelLeft};
   for (int i = 0; i < N_SIZES; i++) {
-    int w = kSizes[i].w, h = kSizes[i].h;
+    int w = kSizes[i].w;
+    int h = kSizes[i].h;
     struct BmpImage img = makeRandomImage(w, h, kSizes[i].seed);
     int stride = bmpStride(&img);
-    uint8_t *orig = malloc(stride * h);
-    memcpy(orig, img.data, stride * h);
+    uint8_t *orig = malloc((size_t)stride * h);
+    memcpy(orig, img.data, (size_t)stride * h);
     applyConvolution(&img, &shiftRight);
     applyConvolution(&img, &shiftLeft);
-    for (int y = 0; y < h; y++)
-      for (int x = 0; x < w; x++)
-        assert_int_equal(orig[y * stride + x], img.data[y * stride + x]);
+    for (int y = 0; y < h; y++) {
+      for (int x = 0; x < w; x++) {
+        assert_int_equal(orig[(y * stride) + x], img.data[(y * stride) + x]);
+}
+}
     free(orig);
     freeImage(&img);
   }
@@ -324,16 +370,19 @@ static void test_composition_shift_vertical(void **state) {
   struct Filter shiftDown = {3, 3, 1.0, 0.0, kernelDown};
   struct Filter shiftUp = {3, 3, 1.0, 0.0, kernelUp};
   for (int i = 0; i < N_SIZES; i++) {
-    int w = kSizes[i].w, h = kSizes[i].h;
+    int w = kSizes[i].w;
+    int h = kSizes[i].h;
     struct BmpImage img = makeRandomImage(w, h, kSizes[i].seed);
     int stride = bmpStride(&img);
-    uint8_t *orig = malloc(stride * h);
-    memcpy(orig, img.data, stride * h);
+    uint8_t *orig = malloc((size_t)stride * h);
+    memcpy(orig, img.data, (size_t)stride * h);
     applyConvolution(&img, &shiftDown);
     applyConvolution(&img, &shiftUp);
-    for (int y = 0; y < h; y++)
-      for (int x = 0; x < w; x++)
-        assert_int_equal(orig[y * stride + x], img.data[y * stride + x]);
+    for (int y = 0; y < h; y++) {
+      for (int x = 0; x < w; x++) {
+        assert_int_equal(orig[(y * stride) + x], img.data[(y * stride) + x]);
+}
+}
     free(orig);
     freeImage(&img);
   }

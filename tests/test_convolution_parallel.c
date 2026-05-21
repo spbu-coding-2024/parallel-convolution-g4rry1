@@ -14,10 +14,11 @@ static struct BmpImage makeRandomImage(int w, int h, unsigned int seed) {
   img.info.biWidth = w;
   img.info.biHeight = h;
   int stride = bmpStride(&img);
-  img.data = malloc(stride * h);
+  img.data = malloc((size_t)stride * h);
   srand(seed);
-  for (int i = 0; i < stride * h; i++)
+  for (int i = 0; i < stride * h; i++) {
     img.data[i] = (uint8_t)(rand() % 256);
+  }
   return img;
 }
 
@@ -32,7 +33,8 @@ static void freeBmpImage(struct BmpImage *img) {
 static void check_parallel_equals_sequential(const struct Filter *filter,
                                              enum TypeParallel type,
                                              int numThreads) {
-  int w = 64, h = 64;
+  int w = 64;
+  int h = 64;
   struct BmpImage seq = makeRandomImage(w, h, 42);
   struct BmpImage par = makeRandomImage(w, h, 42);
   int stride = bmpStride(&seq);
@@ -40,9 +42,11 @@ static void check_parallel_equals_sequential(const struct Filter *filter,
   applyConvolution(&seq, filter);
   applyConvolutionParallel(&par, filter, numThreads, type);
 
-  for (int y = 0; y < h; y++)
-    for (int x = 0; x < w; x++)
-      assert_int_equal(seq.data[y * stride + x], par.data[y * stride + x]);
+  for (int y = 0; y < h; y++) {
+    for (int x = 0; x < w; x++) {
+      assert_int_equal(seq.data[(y * stride) + x], par.data[(y * stride) + x]);
+    }
+  }
   freeImage(&seq);
   freeImage(&par);
 }
@@ -58,9 +62,11 @@ static void check_par_eq_seq(const struct Filter *filter,
   applyConvolution(&seq, filter);
   applyConvolutionParallel(&par, filter, numThreads, type);
 
-  for (int y = 0; y < h; y++)
-    for (int x = 0; x < w; x++)
-      assert_int_equal(seq.data[y * stride + x], par.data[y * stride + x]);
+  for (int y = 0; y < h; y++) {
+    for (int x = 0; x < w; x++) {
+      assert_int_equal(seq.data[(y * stride) + x], par.data[(y * stride) + x]);
+    }
+  }
   freeImage(&seq);
   freeImage(&par);
 }
@@ -188,29 +194,38 @@ static const FilterCase kFilters[] = {
 
 static void test_horizontal_thread_counts(void **state) {
   (void)state;
-  for (int fi = 0; fi < N_FILTERS; fi++)
-    for (int ti = 0; ti < N_LINEAR_THREADS; ti++)
-      for (int si = 0; si < N_PAR_SIZES; si++)
+  for (int fi = 0; fi < N_FILTERS; fi++) {
+    for (int ti = 0; ti < N_LINEAR_THREADS; ti++) {
+      for (int si = 0; si < N_PAR_SIZES; si++) {
         check_par_eq_seq(kFilters[fi].filter, horizontal, kLinearThreads[ti],
                          kParSizes[si].w, kParSizes[si].h, kParSizes[si].seed);
+      }
+    }
+  }
 }
 
 static void test_vertical_thread_counts(void **state) {
   (void)state;
-  for (int fi = 0; fi < N_FILTERS; fi++)
-    for (int ti = 0; ti < N_LINEAR_THREADS; ti++)
-      for (int si = 0; si < N_PAR_SIZES; si++)
+  for (int fi = 0; fi < N_FILTERS; fi++) {
+    for (int ti = 0; ti < N_LINEAR_THREADS; ti++) {
+      for (int si = 0; si < N_PAR_SIZES; si++) {
         check_par_eq_seq(kFilters[fi].filter, vertical, kLinearThreads[ti],
                          kParSizes[si].w, kParSizes[si].h, kParSizes[si].seed);
+      }
+    }
+  }
 }
 
 static void test_pixel_thread_counts(void **state) {
   (void)state;
-  for (int fi = 0; fi < N_FILTERS; fi++)
-    for (int ti = 0; ti < N_LINEAR_THREADS; ti++)
-      for (int si = 0; si < N_PAR_SIZES; si++)
+  for (int fi = 0; fi < N_FILTERS; fi++) {
+    for (int ti = 0; ti < N_LINEAR_THREADS; ti++) {
+      for (int si = 0; si < N_PAR_SIZES; si++) {
         check_par_eq_seq(kFilters[fi].filter, pixel, kLinearThreads[ti],
                          kParSizes[si].w, kParSizes[si].h, kParSizes[si].seed);
+      }
+    }
+  }
 }
 
 // block requires a perfect-square numThreads; 16 = 4x4 grid stresses small
@@ -221,11 +236,14 @@ static const int kBlockThreads[] = {1, 4, 9, 16};
 
 static void test_block_thread_counts(void **state) {
   (void)state;
-  for (int fi = 0; fi < N_FILTERS; fi++)
-    for (int ti = 0; ti < N_BLOCK_THREADS; ti++)
-      for (int si = 0; si < N_PAR_SIZES; si++)
+  for (int fi = 0; fi < N_FILTERS; fi++) {
+    for (int ti = 0; ti < N_BLOCK_THREADS; ti++) {
+      for (int si = 0; si < N_PAR_SIZES; si++) {
         check_par_eq_seq(kFilters[fi].filter, block, kBlockThreads[ti],
                          kParSizes[si].w, kParSizes[si].h, kParSizes[si].seed);
+      }
+    }
+  }
 }
 
 static void test_bmp_file_parallel_matches_sequential(void **state) {
@@ -243,9 +261,11 @@ static void test_bmp_file_parallel_matches_sequential(void **state) {
 
   assert_int_equal(seq.info.biWidth, par.info.biWidth);
   assert_int_equal(seq.info.biHeight, par.info.biHeight);
-  for (int y = 0; y < height; y++)
-    for (int x = 0; x < seq.info.biWidth; x++)
-      assert_int_equal(seq.data[y * stride + x], par.data[y * stride + x]);
+  for (int y = 0; y < height; y++) {
+    for (int x = 0; x < seq.info.biWidth; x++) {
+      assert_int_equal(seq.data[(y * stride) + x], par.data[(y * stride) + x]);
+    }
+  }
 
   freeBmpImage(&seq);
   freeBmpImage(&par);

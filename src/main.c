@@ -246,6 +246,7 @@ static int runSingle(const struct Config *cfg, const struct Filter *filter,
 
   free(image.palette);
   free(image.data);
+  free(customFilter->kernel);
   return ret;
 }
 

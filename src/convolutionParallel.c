@@ -76,6 +76,12 @@ void applyConvolutionParallel(struct BmpImage *image,
   }
   memcpy(tmp, image->data, dataSize);
 
+  int blocksPerRow = (int)sqrt((double)numThreads);
+  if (type == block && blocksPerRow * blocksPerRow != numThreads) {
+    free(tmp);
+    return;
+  }
+
   atomic_int counter = 0;
   pthread_t *threads = malloc(numThreads * sizeof(pthread_t));
   struct ThreadArgs *targs = malloc(numThreads * sizeof(struct ThreadArgs));
@@ -106,7 +112,6 @@ void applyConvolutionParallel(struct BmpImage *image,
       targs[i].y_end = h;
       pthread_create(&threads[i], NULL, threadConvolution, &targs[i]);
     } else if (type == block) {
-      int blocksPerRow = (int)sqrt(numThreads);
       int blockX = i % blocksPerRow;
       int blockY = i / blocksPerRow;
       targs[i].x_start = blockX * (w / blocksPerRow);
